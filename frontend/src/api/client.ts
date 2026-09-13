@@ -1,4 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Empty string = same-origin relative requests, which is correct in production:
+// the backend serves this built frontend itself on one port (see app/main.py),
+// behind the retirement.damsm.com Cloudflare Tunnel. Only set VITE_API_URL for
+// local dev where the frontend (`npm run dev`, :5173) and backend run as
+// separate processes/origins.
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 function getToken(): string | null {
   return localStorage.getItem("token");

@@ -13,10 +13,15 @@ editable — no external API dependency.
 - **Auth:** JWT (access + refresh cookies), bcrypt password hashing
 - **Deployment:** Postgres runs via `docker-compose.yml` (the one piece
   Container Manager hosts); the API and frontend run as native processes
-  on the NAS — `backend/run.sh` (gunicorn + Uvicorn workers) and
-  `frontend/run.sh` (Vite build served via `serve`), each in its own
-  Python venv / npm install, no app-level Docker for now. Dockerfiles for
-  both are still in the repo if we want to containerize them later.
+  on the NAS. `backend/run.sh` (gunicorn + Uvicorn workers) is the only
+  process exposed externally: it serves the API *and* the frontend's built
+  `dist/` (see the static-file block in `backend/app/main.py`) on one port,
+  since the Cloudflare Tunnel for `retirement.damsm.com` only forwards to a
+  single local port (6005 by default). `frontend/run.sh` still builds the
+  frontend, but its standalone `serve` step is just for local previews on
+  its own port now, not part of the production path. No app-level Docker
+  for now — Dockerfiles for both are still in the repo if we want to
+  containerize them later.
 
 ## Data model (scaffolded in full now, so later phases need no schema churn)
 
@@ -163,20 +168,36 @@ edits often.
 Postgres: `docker compose up -d postgres` (or point at any existing
 Postgres instance — just create a database + role for it).
 
-Backend:
-```
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # set DATABASE_URL + JWT_SECRET
-./run.sh               # runs migrations, then gunicorn on :8000
-```
-
-Frontend:
+**Production (NAS, behind the `retirement.damsm.com` Cloudflare Tunnel):**
+one process on one port serves everything, since that's all a single tunnel
+hostname forwards to.
 ```
 cd frontend
-echo "VITE_API_URL=http://<api-host>:8000" > .env.local
-./run.sh               # builds, then serves dist/ on :4173
+npm install
+npm run build           # writes frontend/dist/ — no VITE_API_URL needed,
+                         # requests are same-origin in production
+
+cd ../backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env    # set DATABASE_URL + JWT_SECRET; CORS_ORIGINS
+                         # defaults already include retirement.damsm.com
+./run.sh                # runs migrations, then gunicorn on :6005,
+                         # serving the API and frontend/dist/ together
+```
+Point the Cloudflare Tunnel's ingress rule for `retirement.damsm.com` at
+`http://localhost:6005` (or wherever `backend/run.sh` runs — override with
+`PORT=xxxx ./run.sh`).
+
+**Local dev** (frontend and backend as separate processes/origins,
+hot-reloading):
+```
+cd frontend
+cp .env.example .env.local   # VITE_API_URL=http://127.0.0.1:6005
+npm run dev                  # Vite dev server on :5173
+
+cd ../backend
+./run.sh                     # gunicorn on :6005 (or PORT=8000 ./run.sh, etc.)
 ```
 
 Note: `psycopg2-binary` doesn't build on newer CPython (3.13+) — the
