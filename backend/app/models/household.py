@@ -45,7 +45,7 @@ class HouseholdMember(Base):
     household_id: Mapped[int] = mapped_column(ForeignKey("households.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     role: Mapped[HouseholdRole] = mapped_column(
-        Enum(HouseholdRole), default=HouseholdRole.MEMBER, nullable=False
+        Enum(HouseholdRole, inherit_schema=True), default=HouseholdRole.MEMBER, nullable=False
     )
 
     household: Mapped["Household"] = relationship(back_populates="members")

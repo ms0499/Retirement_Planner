@@ -24,7 +24,9 @@ class Account(Base):
     person_id: Mapped[int | None] = mapped_column(ForeignKey("people.id"), nullable=True)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False)
+    account_type: Mapped[AccountType] = mapped_column(
+        Enum(AccountType, inherit_schema=True), nullable=False
+    )
     balance: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     annual_contribution: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     annual_employer_match: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

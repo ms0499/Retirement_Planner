@@ -37,10 +37,11 @@ class HouseholdAssumptions(Base):
         Numeric(5, 4), default=DEFAULT_SAFE_WITHDRAWAL_RATE
     )
     lifestyle_preset: Mapped[LifestylePreset] = mapped_column(
-        Enum(LifestylePreset), default=LifestylePreset.COMFORTABLE
+        Enum(LifestylePreset, inherit_schema=True), default=LifestylePreset.COMFORTABLE
     )
     filing_status: Mapped[FilingStatus] = mapped_column(
-        Enum(FilingStatus), default=FilingStatus.MARRIED_FILING_JOINTLY
+        Enum(FilingStatus, inherit_schema=True),
+        default=FilingStatus.MARRIED_FILING_JOINTLY,
     )
 
     household: Mapped["Household"] = relationship(back_populates="assumptions")

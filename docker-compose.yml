@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-retirement}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-retirement}
-      POSTGRES_DB: ${POSTGRES_DB:-retirement}
+      POSTGRES_DB: ${POSTGRES_DB:-retirement-planner}
     volumes:
       - retirement_postgres_data:/var/lib/postgresql/data
     ports:

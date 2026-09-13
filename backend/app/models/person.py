@@ -17,7 +17,9 @@ class Person(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(ForeignKey("households.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    relationship_type: Mapped[Relationship] = mapped_column(Enum(Relationship), nullable=False)
+    relationship_type: Mapped[Relationship] = mapped_column(
+        Enum(Relationship, inherit_schema=True), nullable=False
+    )
 
     current_age: Mapped[int] = mapped_column(Integer, nullable=False)
     retirement_age: Mapped[int] = mapped_column(Integer, nullable=False)

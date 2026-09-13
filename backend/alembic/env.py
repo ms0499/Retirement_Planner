@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.config import settings
-from app.database import Base
+from app.database import SCHEMA, Base
 from app import models  # noqa: F401  (registers all models on Base.metadata)
 
 config = context.config
@@ -23,6 +23,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_schema=SCHEMA,
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -35,7 +37,12 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table_schema=SCHEMA,
+            include_schemas=True,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
