@@ -10,6 +10,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Rebuild the frontend on every run so local code changes are picked up.
+if [ -d ../frontend ]; then
+  ( cd ../frontend && npm install && npm run build )
+fi
+
 # Pinned to match the Python version used in Dockerfile — the app relies on
 # 3.9+ type-hint syntax, and other interpreters installed on the NAS (e.g. an
 # older system Python or a too-new one without prebuilt wheels for our pinned
