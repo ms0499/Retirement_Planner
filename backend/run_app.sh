@@ -11,8 +11,16 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Rebuild the frontend on every run so local code changes are picked up.
+# npm install only reruns when package-lock.json has actually changed.
 if [ -d ../frontend ]; then
-  ( cd ../frontend && npm install && npm run build )
+  (
+    cd ../frontend
+    if [ ! -f node_modules/.install-stamp ] || [ package-lock.json -nt node_modules/.install-stamp ]; then
+      npm install
+      touch node_modules/.install-stamp
+    fi
+    npm run build
+  )
 fi
 
 # Pinned to match the Python version used in Dockerfile — the app relies on
