@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 
 interface Household {
   id: number;
@@ -39,7 +39,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const households = await api.get<Household[]>("/households");
       setHousehold(households[0] ?? null);
-    } catch {
+    } catch (err) {
+      // An expired/invalid token (e.g. after a backend restart or secret
+      // rotation) would otherwise leave `household` null forever with the
+      // stale token still in localStorage, stranding Dashboard on its
+      // loading state indefinitely. Log out so RequireAuth sends the user
+      // back to /login instead.
+      if (err instanceof ApiError && err.status === 401) {
+        setToken(null);
+      }
       setHousehold(null);
     }
   }
