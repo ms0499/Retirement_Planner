@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -18,6 +17,33 @@ interface ActionPlan {
   items: ActionItem[];
 }
 
+interface StrategyCandidate {
+  roth_conversion_target_rate: number | null;
+  use_guardrails: boolean;
+  depletion_shortfall: boolean;
+  after_tax_ending_wealth: number;
+}
+
+interface TopStrategy {
+  assumed_future_tax_rate: number;
+  baseline: StrategyCandidate;
+  best: StrategyCandidate;
+  improvement_vs_baseline: number;
+  candidates: StrategyCandidate[];
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
+function conversionLabel(rate: number | null): string {
+  return rate == null ? "No Roth conversions" : `Fill up to the ${Math.round(rate * 100)}% bracket`;
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   contribution: "Contributions",
   guardrails: "Guardrails",
@@ -29,11 +55,14 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default function ActionPlan() {
   const { household } = useAuth();
-  const navigate = useNavigate();
 
   const [plan, setPlan] = useState<ActionPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [topStrategy, setTopStrategy] = useState<TopStrategy | null>(null);
+  const [topStrategyLoading, setTopStrategyLoading] = useState(true);
+  const [topStrategyError, setTopStrategyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!household) return;
@@ -43,6 +72,15 @@ export default function ActionPlan() {
       .then(setPlan)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to build your action plan"))
       .finally(() => setLoading(false));
+
+    setTopStrategyLoading(true);
+    api
+      .get<TopStrategy>(`/households/${household.id}/top-strategy`)
+      .then(setTopStrategy)
+      .catch((err) =>
+        setTopStrategyError(err instanceof Error ? err.message : "Failed to compute top strategies")
+      )
+      .finally(() => setTopStrategyLoading(false));
   }, [household]);
 
   if (loading) return <div className="page-loading">Weighing your options…</div>;
@@ -57,9 +95,6 @@ export default function ActionPlan() {
             prioritized to-do list
           </p>
         </div>
-        <button className="secondary" onClick={() => navigate("/")}>
-          Back to dashboard
-        </button>
       </header>
 
       {error && <div className="error-banner">{error}</div>}
@@ -81,6 +116,64 @@ export default function ActionPlan() {
               <span className="stat-value">{Math.round(plan.monte_carlo_success_rate * 100)}%</span>
               <span className="stat-hint">of simulated market paths never ran out of money</span>
             </div>
+          </div>
+
+          <div className="card">
+            <h2>Top strategy</h2>
+            {topStrategyLoading && <p className="stat-hint">Searching strategy combinations…</p>}
+            {topStrategyError && <div className="error-banner">{topStrategyError}</div>}
+            {topStrategy && (
+              <>
+                <p className="stat-hint">
+                  Compares Roth-conversion aggressiveness and spending guardrails together, and
+                  picks the combination with the highest after-tax ending wealth — tax-deferred
+                  balances discounted at an assumed {Math.round(topStrategy.assumed_future_tax_rate * 100)}%
+                  future tax rate, since that money isn't fully yours yet.
+                </p>
+                <div className="stat-grid">
+                  <div className="stat-card">
+                    <span className="stat-label">Best strategy</span>
+                    <span className="stat-value">
+                      {conversionLabel(topStrategy.best.roth_conversion_target_rate)}
+                    </span>
+                    <span className="stat-hint">
+                      {topStrategy.best.use_guardrails ? "With" : "Without"} spending guardrails
+                    </span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Estimated improvement</span>
+                    <span className="stat-value">
+                      {topStrategy.improvement_vs_baseline >= 0 ? "+" : ""}
+                      {formatCurrency(topStrategy.improvement_vs_baseline)}
+                    </span>
+                    <span className="stat-hint">
+                      vs. {formatCurrency(topStrategy.baseline.after_tax_ending_wealth)} baseline
+                      (no conversions, no guardrails)
+                    </span>
+                  </div>
+                </div>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Roth conversions</th>
+                      <th>Guardrails</th>
+                      <th>After-tax ending wealth</th>
+                      <th>Lasts full horizon?</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topStrategy.candidates.map((c, idx) => (
+                      <tr key={idx}>
+                        <td>{conversionLabel(c.roth_conversion_target_rate)}</td>
+                        <td>{c.use_guardrails ? "On" : "Off"}</td>
+                        <td>{formatCurrency(c.after_tax_ending_wealth)}</td>
+                        <td>{c.depletion_shortfall ? "No" : "Yes"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
 
           <div className="card">

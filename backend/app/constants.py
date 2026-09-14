@@ -156,3 +156,18 @@ IRMAA_BRACKETS = {
 # expected return for that year.
 MONTE_CARLO_DEFAULT_SIMULATIONS = 500
 MONTE_CARLO_DEFAULT_RETURN_VOLATILITY = 0.15
+
+# --- Phase 5: top-strategy optimizer ---------------------------------------
+# "After-tax ending wealth" for ranking strategies discounts the ending
+# tax-deferred balance by this assumed future marginal rate (traditional
+# accounts are never fully yours — whoever eventually withdraws them, or
+# inherits them, owes ordinary income tax). Roth and taxable balances are
+# already after-tax, so they count at face value. Reuses the same 22%
+# heuristic as ROTH_CONVERSION_TARGET_BRACKET_RATE above.
+TOP_STRATEGY_ASSUMED_FUTURE_TAX_RATE = ROTH_CONVERSION_TARGET_BRACKET_RATE
+
+# Candidate Roth-conversion aggressiveness levels the optimizer grid-searches
+# over, each meaning "convert enough each year to fill up to the top of this
+# bracket" (see roth_conversion_target_rate in build_projection). None means
+# "no conversions" and is always included as the conservative baseline.
+TOP_STRATEGY_CONVERSION_RATE_CANDIDATES: list[float | None] = [None, 0.10, 0.12, 0.22, 0.24]

@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -18,7 +17,6 @@ interface CurrentUser {
 
 export default function Household() {
   const { household } = useAuth();
-  const navigate = useNavigate();
 
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<CurrentUser | null>(null);
@@ -80,9 +78,6 @@ export default function Household() {
           <h1>Household</h1>
           <p className="subtitle">Who has access to {household?.name}</p>
         </div>
-        <button className="secondary" onClick={() => navigate("/")}>
-          Back to dashboard
-        </button>
       </header>
 
       {error && <div className="error-banner">{error}</div>}

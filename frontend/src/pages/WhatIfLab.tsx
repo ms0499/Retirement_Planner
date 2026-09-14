@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 import MonteCarloChart from "../components/MonteCarloChart";
@@ -52,7 +51,6 @@ function formatCurrency(value: number): string {
 
 export default function WhatIfLab() {
   const { household } = useAuth();
-  const navigate = useNavigate();
 
   const [people, setPeople] = useState<Person[]>([]);
   const [baseline, setBaseline] = useState<Assumptions | null>(null);
@@ -148,9 +146,6 @@ export default function WhatIfLab() {
           <h1>What-if lab</h1>
           <p className="subtitle">Try different retirement ages, spending, and market assumptions</p>
         </div>
-        <button className="secondary" onClick={() => navigate("/")}>
-          Back to dashboard
-        </button>
       </header>
 
       {error && <div className="error-banner">{error}</div>}

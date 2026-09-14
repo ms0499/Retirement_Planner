@@ -17,6 +17,7 @@ from app.routers import (
     people,
     projections,
     tax_planning,
+    top_strategy,
     what_if,
 )
 
@@ -41,6 +42,7 @@ app.include_router(tax_planning.router)
 app.include_router(monte_carlo.router)
 app.include_router(what_if.router)
 app.include_router(action_plan.router)
+app.include_router(top_strategy.router)
 
 
 @app.get("/health")

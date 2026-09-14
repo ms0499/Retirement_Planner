@@ -35,7 +35,7 @@ function formatCurrency(value: number): string {
 }
 
 export default function Dashboard() {
-  const { household, setToken } = useAuth();
+  const { household } = useAuth();
   const navigate = useNavigate();
   const [projection, setProjection] = useState<Projection | null>(null);
   const [netWorth, setNetWorth] = useState<number | null>(null);
@@ -63,11 +63,6 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [household, navigate]);
 
-  function logout() {
-    setToken(null);
-    navigate("/login");
-  }
-
   if (loading) return <div className="page-loading">Crunching your numbers…</div>;
 
   return (
@@ -76,23 +71,6 @@ export default function Dashboard() {
         <div>
           <h1>{household?.name}</h1>
           <p className="subtitle">Your retirement plan</p>
-        </div>
-        <div className="dashboard-header-actions">
-          <button className="secondary" onClick={() => navigate("/tax-planning")}>
-            Tax planning
-          </button>
-          <button className="secondary" onClick={() => navigate("/what-if-lab")}>
-            What-if lab
-          </button>
-          <button className="secondary" onClick={() => navigate("/action-plan")}>
-            Action plan
-          </button>
-          <button className="secondary" onClick={() => navigate("/household")}>
-            Household
-          </button>
-          <button className="secondary" onClick={logout}>
-            Sign out
-          </button>
         </div>
       </header>
 

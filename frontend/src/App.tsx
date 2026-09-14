@@ -1,11 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import AppLayout from "./components/AppLayout";
 import { useAuth } from "./context/AuthContext";
 import ActionPlan from "./pages/ActionPlan";
 import Dashboard from "./pages/Dashboard";
 import Household from "./pages/Household";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
+import Profile from "./pages/Profile";
 import Register from "./pages/Register";
 import TaxPlanning from "./pages/TaxPlanning";
 import WhatIfLab from "./pages/WhatIfLab";
@@ -31,45 +33,19 @@ export default function App() {
         }
       />
       <Route
-        path="/tax-planning"
         element={
           <RequireAuth>
-            <TaxPlanning />
+            <AppLayout />
           </RequireAuth>
         }
-      />
-      <Route
-        path="/what-if-lab"
-        element={
-          <RequireAuth>
-            <WhatIfLab />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/action-plan"
-        element={
-          <RequireAuth>
-            <ActionPlan />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/household"
-        element={
-          <RequireAuth>
-            <Household />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <Dashboard />
-          </RequireAuth>
-        }
-      />
+      >
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/tax-planning" element={<TaxPlanning />} />
+        <Route path="/what-if-lab" element={<WhatIfLab />} />
+        <Route path="/action-plan" element={<ActionPlan />} />
+        <Route path="/household" element={<Household />} />
+        <Route path="/profile" element={<Profile />} />
+      </Route>
     </Routes>
   );
 }

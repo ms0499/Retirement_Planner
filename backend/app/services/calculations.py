@@ -38,6 +38,17 @@ Simplifying assumptions (Phase 1 & 2, extended in Phase 3):
   each year's lifestyle withdrawal rate against the rate set at retirement
   and nudge lifestyle spending down/up by a fixed step when it drifts too
   far — see GUARDRAILS_* constants.
+- Roth conversions (Phase 5), when a target bracket rate is supplied, are
+  actually executed each decumulation year rather than merely suggested:
+  after that year's guaranteed income, SS, and RMDs are known, whatever
+  taxable-income "room" remains below the target bracket's ceiling is
+  converted from tax-deferred to Roth, capped by the tax-deferred balance
+  available and by how much of the resulting tax bill the taxable bucket
+  can absorb (conversions must be paid for out of pocket, not from the
+  converted funds, or the tax-free-growth benefit is defeated). Skipped
+  entirely if the household has no Roth account to convert into. See
+  top_strategy.py, which grid-searches this rate (plus guardrails on/off)
+  for the combination with the best after-tax ending wealth.
 """
 
 from dataclasses import dataclass
@@ -140,14 +151,25 @@ def _withdraw_from_bucket(states: list[_AccountState], bucket: str, amount: floa
     return amount - remaining
 
 
-def _reinvest_surplus(states: list[_AccountState], surplus: float) -> None:
-    taxable_states = [s for s in states if s.bucket == "taxable"]
-    total = sum(s.balance for s in taxable_states)
+def _deposit_into_bucket(states: list[_AccountState], bucket: str, amount: float) -> None:
+    """Spreads a deposit proportionally across existing balances in a bucket
+    (falling back to the first account of that bucket if all are empty).
+    A bucket with no accounts at all silently absorbs nothing — callers must
+    check for that case first (see the taxable placeholder in
+    _build_account_states, and the roth-account check before conversions)."""
+    matching = [s for s in states if s.bucket == bucket]
+    if not matching:
+        return
+    total = sum(s.balance for s in matching)
     if total > 0:
-        for s in taxable_states:
-            s.balance += surplus * (s.balance / total)
+        for s in matching:
+            s.balance += amount * (s.balance / total)
     else:
-        taxable_states[0].balance += surplus
+        matching[0].balance += amount
+
+
+def _reinvest_surplus(states: list[_AccountState], surplus: float) -> None:
+    _deposit_into_bucket(states, "taxable", surplus)
 
 
 def _guaranteed_income_detail(people: list[Person], year_index: int) -> tuple[float, float, float]:
@@ -186,6 +208,7 @@ def build_projection(
     return_shocks: list[float] | None = None,
     spending_multiplier: float = 1.0,
     use_guardrails: bool = False,
+    roth_conversion_target_rate: float | None = None,
 ) -> ProjectionOut:
     if not people:
         raise ValueError("At least one person is required to build a projection")
@@ -309,6 +332,41 @@ def build_projection(
             baseline_ordinary_income = other_ordinary_income + ss_taxable
             tax_on_baseline = ordinary_income_tax(baseline_ordinary_income, filing_status)
 
+            conversion_amount = 0.0
+            if roth_conversion_target_rate is not None and any(
+                s.bucket == "roth" for s in account_states
+            ):
+                conversion_ceiling = _bracket_ceiling(roth_conversion_target_rate, filing_status)
+                deduction = STANDARD_DEDUCTION[filing_status]
+                current_taxable_income = max(0.0, baseline_ordinary_income - deduction)
+                room = max(0.0, conversion_ceiling - current_taxable_income)
+                tax_deferred_available = sum(
+                    s.balance for s in account_states if s.bucket == "tax_deferred"
+                )
+                conversion_amount = min(room, tax_deferred_available)
+                if conversion_amount > 0:
+                    conversion_tax = (
+                        ordinary_income_tax(
+                            baseline_ordinary_income + conversion_amount, filing_status
+                        )
+                        - tax_on_baseline
+                    )
+                    taxable_available = sum(
+                        s.balance for s in account_states if s.bucket == "taxable"
+                    )
+                    if conversion_tax > taxable_available:
+                        # Can't afford the tax bill on the full amount out of
+                        # pocket — scale the conversion down to what fits.
+                        scale = taxable_available / conversion_tax if conversion_tax > 0 else 0.0
+                        conversion_amount *= scale
+                        conversion_tax = taxable_available
+                    if conversion_amount > 0.01:
+                        _withdraw_from_bucket(account_states, "tax_deferred", conversion_amount)
+                        _withdraw_from_bucket(account_states, "taxable", conversion_tax)
+                        _deposit_into_bucket(account_states, "roth", conversion_amount)
+                    else:
+                        conversion_amount = 0.0
+
             net_cash_available = guaranteed_income + rmd_amount_total - tax_on_baseline
             remaining_need = max(0.0, total_need - net_cash_available)
             surplus = max(0.0, net_cash_available - total_need)
@@ -327,19 +385,25 @@ def build_projection(
                 tax_deferred_available = sum(
                     s.balance for s in account_states if s.bucket == "tax_deferred"
                 )
+                # Marginal tax on this withdrawal stacks on top of whatever
+                # bracket space the conversion above already used.
+                income_before_extra = baseline_ordinary_income + conversion_amount
+                tax_before_extra = ordinary_income_tax(income_before_extra, filing_status)
                 extra_tax_deferred_withdrawal = solve_tax_deferred_withdrawal_for_net(
-                    remaining_need, baseline_ordinary_income, filing_status, tax_deferred_available
+                    remaining_need, income_before_extra, filing_status, tax_deferred_available
                 )
                 _withdraw_from_bucket(account_states, "tax_deferred", extra_tax_deferred_withdrawal)
                 net_from_extra = extra_tax_deferred_withdrawal - (
                     ordinary_income_tax(
-                        baseline_ordinary_income + extra_tax_deferred_withdrawal, filing_status
+                        income_before_extra + extra_tax_deferred_withdrawal, filing_status
                     )
-                    - tax_on_baseline
+                    - tax_before_extra
                 )
                 remaining_need -= max(0.0, net_from_extra)
 
-            taxable_ordinary_income = baseline_ordinary_income + extra_tax_deferred_withdrawal
+            taxable_ordinary_income = (
+                baseline_ordinary_income + conversion_amount + extra_tax_deferred_withdrawal
+            )
             tax_paid = ordinary_income_tax(taxable_ordinary_income, filing_status)
 
             if remaining_need > 0.01:
